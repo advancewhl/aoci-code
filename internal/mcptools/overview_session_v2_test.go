@@ -527,3 +527,48 @@ func TestOverviewV2ProofActivityHonorsIdleAndAbsoluteTTL(t *testing.T) {
 		}
 	}
 }
+
+func TestOverviewV2ManagedExistingUnsafeBoundaries(t *testing.T) {
+	for _, kind := range []string{"symlink", "submodule"} {
+		t.Run(kind, func(t *testing.T) {
+			root := buildObservedVolumeRepo(t)
+			runFixtureGit(t, root, "init", "-q")
+			if kind == "symlink" {
+				if err := os.Symlink("main.go", filepath.Join(root, "boundary.go")); err != nil {
+					t.Fatal(err)
+				}
+				runFixtureGit(t, root, "add", "boundary.go")
+			} else {
+				runFixtureGit(t, root, "update-index", "--add", "--cacheinfo", "160000,1111111111111111111111111111111111111111,module")
+			}
+			loaded, fail := loadCognitionCtx(root)
+			if fail != nil {
+				t.Fatal(fail)
+			}
+			metadata, err := deliveryMetadata(root, loaded)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, _, state, fail := inspectVolumeGovernanceWithSnapshot(root, loaded)
+			if fail != nil {
+				t.Fatal(fail)
+			}
+			if state.Legacy {
+				t.Fatal("test must cover Managed Scope")
+			}
+			guard := newOverviewSourceGuard(loaded, metadata, state)
+			if guard == nil {
+				t.Fatal("supported snapshot rejected")
+			}
+			if err := guard.validate(root, loaded); err != nil {
+				t.Fatalf("unchanged existing %s boundary rejected: %v", kind, err)
+			}
+			if err := os.Symlink("main.go", filepath.Join(root, "another-boundary.go")); err != nil {
+				t.Fatal(err)
+			}
+			if guard.validate(root, loaded) == nil {
+				t.Fatal("boundary drift accepted")
+			}
+		})
+	}
+}

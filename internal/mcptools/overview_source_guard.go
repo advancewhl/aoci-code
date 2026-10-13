@@ -112,7 +112,7 @@ func overviewSafeTopology(inventory *afs.SafeInventory) string {
 	boundaries := []string{}
 	for _, item := range inventory.Exclusions {
 		if item.Category == afs.SafetyUnsafe {
-			boundaries = append(boundaries, fmt.Sprintf("%s\x00%t\x00%s: %s", item.PathSummary, item.GitTracked, item.RuleSource, item.Category))
+			boundaries = append(boundaries, fmt.Sprintf("%s\x00%t\x00%s:%s", item.PathSummary, item.GitTracked, item.RuleSource, item.Category))
 		}
 	}
 	return overviewInventoryTopology(inventory.Summary.GitRepository, boundaries)
